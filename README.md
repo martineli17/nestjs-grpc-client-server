@@ -70,3 +70,5 @@ imports: [
 // O NOME DO SERVICE PRECISA SER O MESMO INFORMADO NO .proto
 this._userGrpcService = this._clientGrpc.getService<IUserGrpcService>('UserService'); 
 ```
+
+- Foi criado um controller para que o processo de comunicação entre o client e servidor fosse feita. [Arquivo](https://github.com/martineli17/nestjs-grpc-client-server/blob/master/src/controllers/rest/user.controller.ts)
