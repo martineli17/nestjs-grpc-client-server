@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package grpc_test;
+
+service UserService {
+  rpc GetAll (IGetAllUsersRequest) returns (IGetAllUsersResponse) {}
+  rpc Add (IAddUserRequest) returns (User) {}
+}
+
+message IGetAllUsersRequest {
+}
+
+message IGetAllUsersResponse {
+  repeated User users = 1;
+}
+
+message IAddUserRequest {
+  string name = 1;
+}
+
+message User {
+  int32 id = 1;
+  string name = 2;
+}
