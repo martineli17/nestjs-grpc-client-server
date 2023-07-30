@@ -1,73 +1,72 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="200" alt="Nest Logo" /></a>
-</p>
+# NestJS - gRPC client e server
+Neste exemplo, o objetivo é implementar uma comunicação gRPC entre um servidor e um cliente.
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+## Pacotes
+- [@grpc/grpc-js](https://www.npmjs.com/package/@grpc/grpc-js)
+- [@grpc/proto-loader](https://www.npmjs.com/package/@grpc/proto-loader)
+- [@nestjs/microservices](https://www.npmjs.com/package/@nestjs/microservices)
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
-
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Installation
-
-```bash
-$ npm install
+## Servidor
+- Para inicializar um servidor gRPC, é necessário informar que a sua aplicação tem um microservice do tipo gRPC.
+Com isso, o arquivo de bootstrap da aplicação precisa ser alterado
+```
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.GRPC,
+    options: {
+      url: "localhost:3001", // URL DO SEU SERVIDOR gRPC
+      package: 'grpc_test',
+      protoPath: './src/protos/user.proto', // ARQUIVO PROTO, PODE SER UM ARRAY CONTENDO MAIS DE UM ARQUIVO
+    },
+  });
+  await app.startAllMicroservices();
+  await app.listen(3000);
+  console.log(`Application is running on: ${await app.getUrl()}`);
+}
+bootstrap();
 ```
 
-## Running the app
+- Feita essa alteração, é preciso criar os arquivos .proto que serão responsáveis por representar quais métodos o servidor irá disponibilizar. [Arquivo](https://github.com/martineli17/nestjs-grpc-client-server/blob/master/src/protos/user.proto)
 
-```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+- Com o .proto criado, é necessário criar uma porta para que a comunicação gRPC seja recebida e processada. Para isso, em aplicações NestJS, cria-se um controller para expor essa comunicação. Na controller, cada endpoint representa um método do arquivo .proto. E nestes endpoint, é informado o nome do serviço e o nome do método, que precisam estar iguais ao do arquivo.
+```
+@GrpcMethod('UserService', 'GetAll')
+@GrpcMethod('UserService', 'Add')
 ```
 
-## Test
+- Para representar os type utilizados no .proto, pode ser criada interfaces.
 
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+## Client
+- O registro de um client, o processo pode ser feito via Dependency Injection. Para isso, no module desejado é preciso inserir o import com as informações:
+```
+imports: [
+    ClientsModule.register([
+      {
+        name: 'grpc_test',
+        transport: Transport.GRPC,
+        options: {
+          url: "localhost:3001", // URL DO SERVIDOR
+          package: 'grpc_test',
+          protoPath: './src/protos/user.proto', // ARQUIVOS PROTO. TAMBÈM PODE SER UM ARRAY DE ARQUIVOS
+        },
+      },
+    ]),
+  ],
 ```
 
-## Support
+- Feito o registro via Depedency Injection, agora é possível acessar o cliente de algum service e, assim, realizar a comunicação com o servidor e obter o retorno do mesmo. [Arquivo](https://github.com/martineli17/nestjs-grpc-client-server/blob/master/src/services/user.service.ts)
+```
+  private _clientGrpc: ClientGrpc;
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+  // 'grpc_test' é o nome que foi informado no registro feito no module
+  constructor(@Inject('grpc_test') client: ClientGrpc) {
+    this._clientGrpc = client;
+  }
+```
 
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://kamilmysliwiec.com)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](LICENSE).
+- Como pode ter mais um arquivo .proto, é necessário informar qual é o service desejado. Sendo assim, cria-se uma interface para representar o contrato do service e retorna-se ele.
+```
+// O NOME DO SERVICE PRECISA SER O MESMO INFORMADO NO .proto
+this._userGrpcService = this._clientGrpc.getService<IUserGrpcService>('UserService'); 
+```
